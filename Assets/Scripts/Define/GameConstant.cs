@@ -42,14 +42,8 @@ namespace Game2D.Define
 
     public class GameConstant : MonoBehaviour
     {
-        public static string TOP_SCENE = "Top";
-        public static float CLAW_OPENCLOSE_SPEED = 100.0f;
-        public static string SE_HIT = "hit";
         public static string SE_GREAT = "great";
-        public static string SE_NICE = "nice";
         public static string SE_CLAWMOVE = "crane_move";
-        public static string SE_CLAWCATCHING = "crane_catching";
-
         public static string BGM = "bgm";
     }
 

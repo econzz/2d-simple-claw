@@ -1,4 +1,5 @@
 using Game2D.Define;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,30 +10,81 @@ namespace Game2D.Controller
 {
     public class UIController : MonoBehaviour
     {
-        public GameObject inGameUiPanel;
-        public GameObject gameOverUiPanel;
+        public static Action<BUTTON_STATE> OnButtonControlPressed;
+        public static Action<BUTTON_STATE> OnButtonControlReleased;
 
-        public GameObject scoreTextGobj;
-        public GameObject secondTextGobj;
+        public static Action OnResetPressed;
 
-        public GameObject scoreGameOverTextGobj;
+        [SerializeField] private GameObject inGameUiPanel;
+        [SerializeField] private GameObject gameOverUiPanel;
+        [SerializeField] private Text scoreText;
+        [SerializeField] private Text secondText;
 
-        private GameController gameController;
+        [SerializeField] private Text scoreGameOverText;
 
-        private Text scoreText;
-        private Text secondText;
-        private Text scoreGameOverText;
 
         // Start is called before the first frame update
         void Awake()
         {
-            this.gameController = FindObjectOfType<GameController>();
-
-            this.scoreText = this.scoreTextGobj.GetComponent<Text>();
-            this.secondText = this.secondTextGobj.GetComponent<Text>();
-            this.scoreGameOverText = this.scoreGameOverTextGobj.GetComponent<Text>();
+            RegisterCallback();
         }
 
+
+        /// <summary>
+        /// イベントコールバック登録
+        /// </summary>
+        private void RegisterCallback()
+        {
+            GameController.OnScoreUpdated += OnScoreUpdated;
+            GameController.OnSecondUpdated += OnSecondUpdated;
+            GameController.OnGameStateChanged += ToggleUIBasedOnState;
+
+            GameController.OnGameFinished += OnGameFinished;
+        }
+
+        /// <summary>
+        /// コールバックunregister
+        /// </summary>
+        private void OnDestroy()
+        {
+            GameController.OnScoreUpdated -= OnScoreUpdated;
+            GameController.OnSecondUpdated -= OnSecondUpdated;
+            GameController.OnGameStateChanged -= ToggleUIBasedOnState;
+
+            GameController.OnGameFinished -= OnGameFinished;
+        }
+
+        /// <summary>
+        /// ゲーム終了したときに呼び出す
+        /// </summary>
+        /// <param name="finalScore"></param>
+        private void OnGameFinished(int finalScore)
+        {
+            SetScoreGameOverText(finalScore);
+        }
+
+        /// <summary>
+        /// スコアを変更されたときに呼び出される
+        /// </summary>
+        /// <param name="score"></param>
+        private void OnScoreUpdated(int score)
+        {
+            SetScoreText(score);
+        }
+
+        /// <summary>
+        /// 秒数が変更されたときに呼び出される
+        /// </summary>
+        /// <param name="time"></param>
+        private void OnSecondUpdated(float time)
+        {
+            SetSecondText(time);
+        }
+
+        /// <summary>
+        /// ゲームのstate によって UI 変わる
+        /// </summary>
+        /// <param name="state"></param>
         public void ToggleUIBasedOnState(GAME_STATE state)
         {
 
@@ -51,104 +103,132 @@ namespace Game2D.Controller
 
         }
 
+        /// <summary>
+        /// スコアテキストを更新
+        /// </summary>
+        /// <param name="score"></param>
         public void SetScoreText(int score)
         {
             this.scoreText.text = ""+score;
         }
 
+        /// <summary>
+        /// ゲームオーバーにあるスコアテキストを更新
+        /// </summary>
+        /// <param name="score"></param>
         public void SetScoreGameOverText(int score)
         {
             this.scoreGameOverText.text = "" + score;
         }
 
-
+        /// <summary>
+        /// 秒数テキスト更新
+        /// </summary>
+        /// <param name="seconds"></param>
         public void SetSecondText(float seconds)
         {
             this.secondText.text = "" + seconds;
         }
 
+        /// <summary>
+        /// →ボタン押す
+        /// </summary>
         public void OnRightButtonPressed()
         {
-            this.gameController.MoveCraneByButton(BUTTON_STATE.RIGHT_PRESSED);
-           
+            OnButtonControlPressed?.Invoke(BUTTON_STATE.RIGHT_PRESSED);
         }
 
+        /// <summary>
+        /// →ボタン離す
+        /// </summary>
         public void OnRightButtonReleased()
         {
-            Debug.Log("rightbutton released");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.RIGHT_RELEASED);
-        }
-
-        public void OnLeftButtonPressed()
-        {
-            Debug.Log("leftbutton pressed");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.LEFT_PRESSED);
-
-        }
-
-        public void OnLeftButtonReleased()
-        {
-            Debug.Log("leftbutton released");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.LEFT_RELEASED);
-        }
-
-        public void OnUpButtonPressed()
-        {
-            Debug.Log("upbutton pressed");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.UP_PRESSED);
-        }
-
-        public void OnUpButtonReleased()
-        {
-            Debug.Log("upbutton released");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.UP_RELEASED);
-        }
-
-        public void OnDownButtonPressed()
-        {
-            Debug.Log("downbutton pressed");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.DOWN_PRESSED);
-        }
-
-        public void OnDownButtonReleased()
-        {
-            Debug.Log("downbutton released");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.DOWN_RELEASED);
-        }
-
-        public void OnCatchButtonPressed()
-        {
-            Debug.Log("catch pressed");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.CATCH_PRESSED);
-        }
-
-        public void OnCatchButtonReleased()
-        {
-            Debug.Log("catch released");
-            this.gameController.MoveCraneByButton(BUTTON_STATE.CATCH_RELEASED);
-        }
-
-        public void OnBackButtonPressed()
-        {
-            SceneManager.LoadScene("Top", LoadSceneMode.Single);
+            OnButtonControlReleased?.Invoke(BUTTON_STATE.RIGHT_RELEASED);
             
         }
 
+        /// <summary>
+        /// ←ボタン押す
+        /// </summary>
+        public void OnLeftButtonPressed()
+        {
+            OnButtonControlPressed?.Invoke(BUTTON_STATE.LEFT_PRESSED);
+
+        }
+
+        /// <summary>
+        /// ←ボタン離す
+        /// </summary>
+        public void OnLeftButtonReleased()
+        {
+            OnButtonControlReleased?.Invoke(BUTTON_STATE.LEFT_RELEASED);
+        }
+
+        /// <summary>
+        /// ↑ボタン押す
+        /// </summary>
+        public void OnUpButtonPressed()
+        {
+            OnButtonControlPressed?.Invoke(BUTTON_STATE.UP_PRESSED);
+        }
+
+        /// <summary>
+        /// ↑ボタン離す
+        /// </summary>
+        public void OnUpButtonReleased()
+        {
+            OnButtonControlReleased?.Invoke(BUTTON_STATE.UP_RELEASED);
+        }
+
+        /// <summary>
+        /// ↓ボタン押す
+        /// </summary>
+        public void OnDownButtonPressed()
+        {
+            OnButtonControlPressed?.Invoke(BUTTON_STATE.DOWN_PRESSED);
+        }
+
+        /// <summary>
+        /// ↓ボタン離す
+        /// </summary>
+        public void OnDownButtonReleased()
+        {
+            OnButtonControlReleased?.Invoke(BUTTON_STATE.DOWN_RELEASED);
+        }
+
+        /// <summary>
+        /// キャッチボタン押す
+        /// </summary>
+        public void OnCatchButtonPressed()
+        {
+
+            OnButtonControlPressed?.Invoke(BUTTON_STATE.CATCH_PRESSED);
+        }
+
+        /// <summary>
+        /// キャッチボタン離す
+        /// </summary>
+        public void OnCatchButtonReleased()
+        {
+            OnButtonControlReleased?.Invoke(BUTTON_STATE.CATCH_RELEASED);
+        }
+
+        /// <summary>
+        /// リスタートボタン押す
+        /// </summary>
         public void OnResetButtonPressed()
         {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            OnResetPressed?.Invoke();
         }
 
+        /// <summary>
+        /// リスタートボタン押す
+        /// </summary>
         public void OnRestartGameOverButtonPressed()
         {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
+            OnResetPressed?.Invoke();
         }
 
-        // Update is called once per frame
-        void Update()
-        {
-
-        }
     }
 
 }

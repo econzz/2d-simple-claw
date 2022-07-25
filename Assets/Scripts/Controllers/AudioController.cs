@@ -9,9 +9,8 @@ namespace Game2D.Controller
 {
     public class AudioController : MonoBehaviour
     {
-        public Sound[] sounds;
-
-        public AudioSource bgmSource;
+        [SerializeField] private Sound[] sounds;
+        [SerializeField] private AudioSource bgmSource;
 
         void Awake()
         {
@@ -26,6 +25,10 @@ namespace Game2D.Controller
             }
         }
 
+        /// <summary>
+        /// Play SE
+        /// </summary>
+        /// <param name="name"></param>
         public void Play(string name)
         {
             Sound s = Array.Find(sounds, sound => sound.name == name);
@@ -35,12 +38,20 @@ namespace Game2D.Controller
             s.source.Play();
         }
 
+        /// <summary>
+        /// Stop SE
+        /// </summary>
+        /// <param name="name"></param>
         public void Stop(string name)
         {
             Sound s = Array.Find(sounds, sound => sound.name == name);
             s.source.Stop();
         }
 
+        /// <summary>
+        /// BGM 再生
+        /// </summary>
+        /// <param name="name"></param>
         public void PlayBgm(string name)
         {
             Sound s = Array.Find(sounds, sound => sound.name == name);
@@ -50,6 +61,10 @@ namespace Game2D.Controller
             s.sourceBgm.Play();
         }
 
+        /// <summary>
+        /// BGM ストップ
+        /// </summary>
+        /// <param name="name"></param>
         public void StopBgm(string name)
         {
             Sound s = Array.Find(sounds, sound => sound.name == name);

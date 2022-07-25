@@ -4,6 +4,9 @@ using UnityEngine;
 
 namespace Game2D.Define
 {
+    /// <summary>
+    /// Sound class
+    /// </summary>
     [System.Serializable]
     public class Sound
     {

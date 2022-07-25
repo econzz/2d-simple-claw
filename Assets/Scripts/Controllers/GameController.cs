@@ -1,26 +1,36 @@
 using Game2D.Define;
+using Game2D.ObjectScripts;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using Random = UnityEngine.Random;
+
 namespace Game2D.Controller
 {
     public class GameController : MonoBehaviour
     {
-        public GameObject clawGameObject;
-        public GameObject[] prizeGameObjects;
-        public int numberSpawn = 50;
-        public float gameSeconds = 30.0f;
+        //他のスクリプトやゲームオブジェクトがイベントにsubscribe できるように管理する。
+        public static Action OnGameStart;
+        public static Action<int> OnGameFinished;
 
-        public GameObject spawnObjectCollectionGobj;
+        public static Action<float> OnSecondUpdated;
+        public static Action<int> OnScoreUpdated;
+        public static Action<GAME_STATE> OnGameStateChanged;
 
-        private CraneScript clawObject;
+
+        [SerializeField] private GameObject[] prizeGameObjects;
+        [SerializeField] private int numberSpawn = 50;
+        [SerializeField] private float gameSeconds = 30.0f;
+        [SerializeField] private GameObject spawnObjectCollectionGobj;
+        [SerializeField] private InputController inputController;
+
+        [SerializeField] private CraneScript clawObject;
 
         
 
         private int score;
-
-        private UIController uiController;
-
         private GAME_STATE _currentGameState ;
         public GAME_STATE currentGameState
         {
@@ -30,27 +40,87 @@ namespace Game2D.Controller
             }
             set
             {
-                _currentGameState = value;    //５未満なら代入する
+                _currentGameState = value;
+                OnGameStateChanged?.Invoke(_currentGameState);
             }
-        }
-
-        // Start is called before the first frame update
-        void Awake()
-        {
-            this.clawObject = clawGameObject.GetComponent<CraneScript>();
-            this.uiController = FindObjectOfType<UIController>();
-
-            this.SpawnPrize();
-
-            this.currentGameState = GAME_STATE.BEFORE_IN_GAME;
-            this.uiController.ToggleUIBasedOnState(this.currentGameState);
         }
 
         private void Start()
         {
-            this.SetScore(0);
+            this.currentGameState = GAME_STATE.BEFORE_IN_GAME;
+            RegisterCallback();
+            GameStart();
         }
 
+        /// <summary>
+        /// ゲームを初期スタート
+        /// </summary>
+        private void GameStart()
+        {
+            SetScore(0);
+            SpawnPrize();
+            OnGameStart?.Invoke();
+        }
+
+        /// <summary>
+        /// イベントコールバック登録
+        /// </summary>
+        private void RegisterCallback()
+        {
+            UIController.OnButtonControlPressed += OnButtonPressed;
+            UIController.OnButtonControlReleased += OnButtonReleased;
+            InputController.OnControlButtonKeyboardPressed += OnButtonPressed;
+            InputController.OnControlButtonKeyboardReleased += OnButtonReleased;
+
+            UIController.OnResetPressed += ResetScene;
+
+            GoalScript.OnPrizeGet += OnPrizeGet;
+        }
+
+        /// <summary>
+        /// コールバックunregister
+        /// </summary>
+        private void OnDestroy()
+        {
+            UIController.OnButtonControlPressed -= OnButtonPressed;
+            UIController.OnButtonControlReleased -= OnButtonReleased;
+            InputController.OnControlButtonKeyboardPressed -= OnButtonPressed;
+            InputController.OnControlButtonKeyboardReleased -= OnButtonReleased;
+
+            UIController.OnResetPressed -= ResetScene;
+
+            GoalScript.OnPrizeGet -= OnPrizeGet;
+        }
+
+        /// <summary>
+        /// ゲームをリセット、シーン再読み込み
+        /// </summary>
+        private void ResetScene()
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
+        }
+
+        /// <summary>
+        /// ボタンを押したとき、両方keyboard or UI によって押されたとき
+        /// </summary>
+        /// <param name="buttonState"></param>
+        private void OnButtonPressed(BUTTON_STATE buttonState)
+        {
+            MoveCraneByButton(buttonState);
+        }
+
+        /// <summary>
+        /// ボタンを離したとき、両方keyboard or UI によって離されたとき
+        /// </summary>
+        /// <param name="buttonState"></param>
+        private void OnButtonReleased(BUTTON_STATE buttonState)
+        {
+            MoveCraneByButton(buttonState);
+        }
+
+        /// <summary>
+        /// 景品出現させる
+        /// </summary>
         private void SpawnPrize()
         {
             for(int i = 0; i < numberSpawn; i++)
@@ -64,6 +134,9 @@ namespace Game2D.Controller
             }
         }
 
+        /// <summary>
+        /// ボタン押されたときに実際ゲームのタイマーなどを始動する
+        /// </summary>
         private void BeginGame()
         {
             if (this.currentGameState == GAME_STATE.BEFORE_IN_GAME)
@@ -74,35 +147,63 @@ namespace Game2D.Controller
             
         }
 
+        /// <summary>
+        /// ゲーム終了しました
+        /// </summary>
         private void FinishGame()
         {
             this.currentGameState = GAME_STATE.GAME_OVER;
-            this.uiController.SetScoreGameOverText(this.score);
-            this.uiController.ToggleUIBasedOnState(this.currentGameState);
+
+            OnGameFinished?.Invoke(this.score);
 
             FindObjectOfType<AudioController>().StopBgm(GameConstant.BGM);
         }
 
+        /// <summary>
+        /// スコアを更新
+        /// </summary>
+        /// <param name="score"></param>
         public void SetScore(int score)
         {
             this.score = score;
-            this.uiController.SetScoreText(this.score);
+            OnScoreUpdated?.Invoke(this.score);
         }
 
-        public void OnPrizeGet()
+        /// <summary>
+        /// 秒数を更新
+        /// </summary>
+        /// <param name="time"></param>
+        public void SetSecond(float time)
+        {
+            this.gameSeconds = time;
+            OnSecondUpdated?.Invoke(this.gameSeconds);
+        }
+
+        /// <summary>
+        /// 景品を穴に落とした
+        /// </summary>
+        /// <param name="prize">ゲットしたprize</param>
+        public void OnPrizeGet(PrizeScript prize)
         {
             FindObjectOfType<AudioController>().Play(GameConstant.SE_GREAT);
-            this.AddScore();
+            AddScore();
 
-            Debug.Log(this.spawnObjectCollectionGobj.transform.childCount);
+            Destroy(prize.gameObject);
+
         }
 
+        /// <summary>
+        /// スコア+1加算
+        /// </summary>
         public void AddScore()
         {
-            this.score++;
-            this.uiController.SetScoreText(this.score);
+            SetScore(this.score+1);
         }
 
+        /// <summary>
+        /// ボタンによってクレーン移動
+        /// </summary>
+        /// <param name="buttonState"></param>
         public void MoveCraneByButton(BUTTON_STATE buttonState)
         {
 
@@ -154,65 +255,24 @@ namespace Game2D.Controller
         // Update is called once per frame
         void Update()
         {
+            if (this.currentGameState == GAME_STATE.GAME_OVER)
+                return;
+            
+            clawObject.OnUpdate();
+            inputController.OnUpdate();
 
             if(this.currentGameState == GAME_STATE.IN_GAME)
             {
-                this.gameSeconds -= Time.deltaTime;
-                uiController.SetSecondText(gameSeconds);
+                SetSecond(this.gameSeconds - Time.deltaTime);
                 if (this.gameSeconds <= 0)
                 {
-                    this.gameSeconds = 0;
-                    uiController.SetSecondText(gameSeconds);
-
+                    SetSecond(0);
                     this.FinishGame();
 
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.DownArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.DOWN_PRESSED);
-            }
-
-            if (Input.GetKeyUp(KeyCode.DownArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.DOWN_RELEASED);
-            }
-
-            if (Input.GetKeyDown(KeyCode.UpArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.UP_PRESSED);
-            }
-
-            if (Input.GetKeyUp(KeyCode.UpArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.UP_RELEASED);
-            }
-
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.LEFT_PRESSED);
-            }
-
-            if (Input.GetKeyUp(KeyCode.LeftArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.LEFT_RELEASED);
-            }
-
-            if (Input.GetKeyDown(KeyCode.RightArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.RIGHT_PRESSED);
-            }
-
-            if (Input.GetKeyUp(KeyCode.RightArrow))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.RIGHT_RELEASED);
-            }
-
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                this.MoveCraneByButton(BUTTON_STATE.CATCH_PRESSED);
-            }
+           
 
             if (this.clawObject.currentState == CRANE_STATE.MOVING_UP)
             {
